@@ -10,260 +10,28 @@ interface ApplicationRecord {
   company?: string
 }
 
-// Confetti component
-const Confetti = () => {
-  const colors = ["#ff6b6b", "#ffd700", "#4ecdc4", "#ff8e53", "#a855f7", "#3b82f6"]
-  const confettiPieces = Array.from({ length: 50 }, (_, i) => ({
-    id: i,
-    left: Math.random() * 100,
-    delay: Math.random() * 3,
-    duration: 3 + Math.random() * 2,
-    color: colors[Math.floor(Math.random() * colors.length)],
-    size: 8 + Math.random() * 8,
-    rotation: Math.random() * 360
-  }))
-
-  return (
-    <div style={{
-      position: "absolute",
-      top: 0,
-      left: 0,
-      width: "100%",
-      height: "100%",
-      pointerEvents: "none",
-      overflow: "hidden"
-    }}>
-      {confettiPieces.map((piece) => (
-        <div
-          key={piece.id}
-          style={{
-            position: "absolute",
-            top: "-20px",
-            left: `${piece.left}%`,
-            width: `${piece.size}px`,
-            height: `${piece.size}px`,
-            backgroundColor: piece.color,
-            animation: `confetti-fall ${piece.duration}s linear ${piece.delay}s forwards`,
-            transform: `rotate(${piece.rotation}deg)`
-          }}
-        />
-      ))}
-      <style>{`
-        @keyframes confetti-fall {
-          0% {
-            transform: translateY(0) rotate(0deg) scale(1);
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(100vh) rotate(720deg) scale(0.8);
-            opacity: 0;
-          }
-        }
-      `}</style>
-    </div>
-  )
-}
-
-// Play celebration sound
-const playCelebrationSound = () => {
-  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-  
-  const playNote = (frequency: number, startTime: number, duration: number) => {
-    const oscillator = audioContext.createOscillator()
-    const gainNode = audioContext.createGain()
-    
-    oscillator.connect(gainNode)
-    gainNode.connect(audioContext.destination)
-    
-    oscillator.frequency.value = frequency
-    oscillator.type = "sine"
-    
-    gainNode.gain.setValueAtTime(0.3, startTime)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration)
-    
-    oscillator.start(startTime)
-    oscillator.stop(startTime + duration)
-  }
-  
-  const now = audioContext.currentTime
-  const notes = [523.25, 659.25, 783.99, 1046.50]
-  notes.forEach((note, i) => {
-    playNote(note, now + i * 0.15, 0.3)
-  })
-  
-  setTimeout(() => {
-    playNote(523.25, audioContext.currentTime, 0.5)
-    playNote(659.25, audioContext.currentTime, 0.5)
-    playNote(783.99, audioContext.currentTime, 0.5)
-  }, 600)
-}
-
-// Celebration Overlay Component
-const CelebrationOverlay = ({
-  show,
-  onClose,
-  applicationCount,
-  message,
-  jobTitle,
-  company
-}: {
-  show: boolean
-  onClose: () => void
-  applicationCount: number
+// Helper to trigger celebration on current tab
+const triggerCelebrationOnCurrentTab = async (data: {
+  count: number
   message: string
+  choices: string[]
   jobTitle?: string
   company?: string
 }) => {
-  useEffect(() => {
-    if (show) {
-      playCelebrationSound()
-      const timer = setTimeout(() => {
-        onClose()
-      }, 8000)
-      return () => clearTimeout(timer)
+  try {
+    // Get the current active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    if (tab?.id) {
+      // Send message to the content script on that tab
+      await chrome.tabs.sendMessage(tab.id, {
+        type: "SHOW_CELEBRATION",
+        data
+      })
+      console.log("[Employment-chan] Celebration triggered on current tab")
     }
-  }, [show, onClose])
-
-  if (!show) return null
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "rgba(0, 0, 0, 0.75)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 999999,
-        animation: "fadeIn 0.3s ease-out"
-      }}
-      onClick={onClose}>
-      <Confetti />
-      <div
-        style={{
-          position: "relative",
-          background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)",
-          borderRadius: 20,
-          padding: 30,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 16,
-          maxWidth: "90vw",
-          maxHeight: "90vh",
-          border: "3px solid #ffd700",
-          animation: "bounceIn 0.5s ease-out, sparkle 2s ease-in-out infinite"
-        }}
-        onClick={(e) => e.stopPropagation()}>
-        <div
-          style={{
-            background: "linear-gradient(135deg, #a855f7 0%, #6366f1 100%)",
-            color: "white",
-            padding: "8px 20px",
-            borderRadius: 20,
-            fontSize: "0.9rem",
-            fontWeight: 700,
-            letterSpacing: "0.5px"
-          }}>
-          Application #{applicationCount}
-        </div>
-        {(jobTitle || company) && (
-          <div style={{
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: 6,
-            maxWidth: 380,
-            textAlign: "center"
-          }}>
-            {jobTitle && <span style={{ color: "#4ecdc4", fontWeight: 600, fontSize: "0.95rem" }}>{jobTitle}</span>}
-            {jobTitle && company && <span style={{ color: "#888", fontSize: "0.85rem" }}>at</span>}
-            {company && <span style={{ color: "#a855f7", fontWeight: 600, fontSize: "0.95rem" }}>{company}</span>}
-          </div>
-        )}
-        <img
-          src={waifuImage}
-          alt="Employment-chan"
-          style={{
-            maxWidth: 350,
-            maxHeight: "45vh",
-            borderRadius: 15,
-            objectFit: "contain",
-            filter: "drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3))"
-          }}
-        />
-        <p style={{
-          color: "#fff",
-          fontSize: "1.3rem",
-          fontWeight: 600,
-          textAlign: "center",
-          margin: 0,
-          maxWidth: 380,
-          lineHeight: 1.4,
-          textShadow: "2px 2px 4px rgba(0, 0, 0, 0.3)"
-        }}>
-          {message}
-        </p>
-        <button
-          onClick={onClose}
-          style={{
-            background: "linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%)",
-            color: "white",
-            border: "none",
-            padding: "14px 32px",
-            fontSize: "1rem",
-            fontWeight: 600,
-            borderRadius: 25,
-            cursor: "pointer",
-            boxShadow: "0 4px 15px rgba(255, 107, 107, 0.3)",
-            transition: "all 0.3s ease"
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "scale(1.05)"
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "scale(1)"
-          }}>
-          Thanks, Employment-chan!
-        </button>
-      </div>
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes bounceIn {
-          0% {
-            transform: scale(0.3) translateY(100px);
-            opacity: 0;
-          }
-          50% {
-            transform: scale(1.05) translateY(-10px);
-          }
-          70% {
-            transform: scale(0.95) translateY(5px);
-          }
-          100% {
-            transform: scale(1) translateY(0);
-            opacity: 1;
-          }
-        }
-        @keyframes sparkle {
-          0%, 100% {
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.4), 0 0 40px rgba(255, 215, 0, 0.2), 0 0 60px rgba(255, 215, 0, 0.1);
-          }
-          50% {
-            box-shadow: 0 0 30px rgba(255, 215, 0, 0.6), 0 0 60px rgba(255, 215, 0, 0.4), 0 0 90px rgba(255, 215, 0, 0.2);
-          }
-        }
-      `}</style>
-    </div>
-  )
+  } catch (error) {
+    console.error("[Employment-chan] Error triggering celebration:", error)
+  }
 }
 
 function IndexPopup() {
@@ -275,13 +43,6 @@ function IndexPopup() {
   const [manualCompany, setManualCompany] = useState("")
   const [manualPosition, setManualPosition] = useState("")
   const [activeTab, setActiveTab] = useState<"stats" | "tracker">("stats")
-  const [showCelebration, setShowCelebration] = useState(false)
-  const [celebrationData, setCelebrationData] = useState<{
-    count: number
-    message: string
-    jobTitle?: string
-    company?: string
-  } | null>(null)
 
   const loadApplications = () => {
     // Load stats from storage (with safety check)
@@ -322,11 +83,16 @@ function IndexPopup() {
     }
   }
 
-  const getAIMessage = async (todayCount: number, totalCount: number, jobTitle?: string, company?: string): Promise<string> => {
+  const getAIDialogue = async (
+    todayCount: number, 
+    totalCount: number, 
+    jobTitle?: string, 
+    company?: string
+  ): Promise<{ message: string; choices: string[] }> => {
     const BACKEND_URL = process.env.PLASMO_PUBLIC_BACKEND_URL || "http://localhost:5000"
     
     try {
-      const response = await fetch(`${BACKEND_URL}/api/generate-message`, {
+      const response = await fetch(`${BACKEND_URL}/api/generate-dialogue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobTitle, company, todayCount, totalCount })
@@ -335,14 +101,17 @@ function IndexPopup() {
       if (response.ok) {
         const data = await response.json()
         if (data.success && data.message) {
-          return data.message
+          return {
+            message: data.message,
+            choices: data.choices || ["Thank you!", "I'm nervous...", "Let's keep going!"]
+          }
         }
       }
     } catch (error) {
-      console.error("[Employment-chan] Error getting AI message:", error)
+      console.error("[Employment-chan] Error getting AI dialogue:", error)
     }
     
-    // Fallback message
+    // Fallback messages
     const messages = [
       "Yatta~! You did it! One step closer to your dream job, ne~ (๑>◡<๑)",
       "Sugoi! Keep that momentum going~! Ganbare! ♡",
@@ -352,19 +121,24 @@ function IndexPopup() {
       "Fighto! Your dedication will definitely pay off! (ﾉ◕ヮ◕)ﾉ*:・ﾟ✧"
     ]
     
+    const fallbackChoices = ["Thank you, Employment-chan!", "I'm so nervous...", "Let's keep going!"]
+    
+    let message: string
     if (totalCount === 1) {
-      return "Your first application! Sugoi~! This is just the beginning of something great, ne~ (๑>◡<๑) ♡"
+      message = "Your first application! Sugoi~! This is just the beginning of something great, ne~ (๑>◡<๑) ♡"
     } else if (totalCount === 10) {
-      return "Yatta~! 10 applications! You're building such amazing momentum! Ganbare! ٩(◕‿◕｡)۶"
+      message = "Yatta~! 10 applications! You're building such amazing momentum! Ganbare! ٩(◕‿◕｡)۶"
     } else if (totalCount === 25) {
-      return "25 applications?! Sugoi sugoi~! Your persistence is truly inspiring! ☆"
+      message = "25 applications?! Sugoi sugoi~! Your persistence is truly inspiring! ☆"
     } else if (totalCount === 50) {
-      return "50 applications! You're like a job hunting hero~! I'm so proud of you! (ﾉ◕ヮ◕)ﾉ*:・ﾟ✧"
+      message = "50 applications! You're like a job hunting hero~! I'm so proud of you! (ﾉ◕ヮ◕)ﾉ*:・ﾟ✧"
     } else if (totalCount === 100) {
-      return "100 APPLICATIONS?! SUGOI~! You're absolutely legendary! I believe in you so much! ♡♡♡"
+      message = "100 APPLICATIONS?! SUGOI~! You're absolutely legendary! I believe in you so much! ♡♡♡"
+    } else {
+      message = messages[Math.floor(Math.random() * messages.length)]
     }
     
-    return messages[Math.floor(Math.random() * messages.length)]
+    return { message, choices: fallbackChoices }
   }
 
   const handleManualAdd = async () => {
@@ -392,8 +166,8 @@ function IndexPopup() {
         const oneDayAgo = now - 24 * 60 * 60 * 1000
         const todayCount = apps.filter((app) => app.timestamp > oneDayAgo).length
 
-        // Get AI message
-        const message = await getAIMessage(
+        // Get AI dialogue (message + choices)
+        const dialogue = await getAIDialogue(
           todayCount,
           newCount,
           manualPosition.trim(),
@@ -411,14 +185,14 @@ function IndexPopup() {
             setShowManualForm(false)
             loadApplications()
             
-            // Show celebration
-            setCelebrationData({
+            // Trigger celebration on current tab
+            triggerCelebrationOnCurrentTab({
               count: newCount,
-              message,
+              message: dialogue.message,
+              choices: dialogue.choices,
               jobTitle: manualPosition.trim(),
               company: manualCompany.trim()
             })
-            setShowCelebration(true)
           }
         )
       })
@@ -471,20 +245,6 @@ function IndexPopup() {
   const sortedApplications = [...applications].sort((a, b) => b.timestamp - a.timestamp)
 
   return (
-    <>
-      {showCelebration && celebrationData && (
-        <CelebrationOverlay
-          show={showCelebration}
-          onClose={() => {
-            setShowCelebration(false)
-            setCelebrationData(null)
-          }}
-          applicationCount={celebrationData.count}
-          message={celebrationData.message}
-          jobTitle={celebrationData.jobTitle}
-          company={celebrationData.company}
-        />
-      )}
     <div
       style={{
         width: 400,
@@ -970,7 +730,6 @@ function IndexPopup() {
         )}
       </div>
     </div>
-    </>
   )
 }
 

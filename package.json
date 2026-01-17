@@ -25,15 +25,21 @@
   },
   "manifest": {
     "permissions": [
-      "storage"
+      "storage",
+      "tabs"
     ],
     "host_permissions": [
-      "https://*/*"
+      "https://*/*",
+      "http://*/*"
     ],
     "web_accessible_resources": [
       {
-        "resources": ["assets/waifu.jpeg"],
-        "matches": ["https://www.linkedin.com/*"]
+        "resources": [
+          "assets/waifu.jpeg",
+          "assets/waifu-with-mouth-closed.jpeg",
+          "assets/waifu-with-mouth-opened.jpeg"
+        ],
+        "matches": ["<all_urls>"]
       }
     ]
   }
