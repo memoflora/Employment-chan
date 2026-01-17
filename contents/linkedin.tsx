@@ -85,16 +85,95 @@ const playCelebrationSound = () => {
   }, 600)
 }
 
-// Track application count
-const incrementApplicationCount = async (): Promise<number> => {
+// Extract job info from LinkedIn page
+const extractJobInfo = (): { jobTitle?: string; company?: string } => {
+  // Try multiple selectors for job title
+  const titleSelectors = [
+    ".job-details-jobs-unified-top-card__job-title h1",
+    ".jobs-unified-top-card__job-title",
+    ".t-24.job-details-jobs-unified-top-card__job-title",
+    "h1.t-24",
+    ".jobs-details__main-content h1",
+    '[data-test-job-title]'
+  ]
+  
+  // Try multiple selectors for company name
+  const companySelectors = [
+    ".job-details-jobs-unified-top-card__company-name a",
+    ".jobs-unified-top-card__company-name a",
+    ".job-details-jobs-unified-top-card__company-name",
+    ".jobs-details__main-content .jobs-unified-top-card__subtitle-primary-grouping a",
+    '[data-test-company-name]'
+  ]
+  
+  let jobTitle: string | undefined
+  let company: string | undefined
+  
+  for (const selector of titleSelectors) {
+    const element = document.querySelector(selector)
+    if (element?.textContent?.trim()) {
+      jobTitle = element.textContent.trim()
+      break
+    }
+  }
+  
+  for (const selector of companySelectors) {
+    const element = document.querySelector(selector)
+    if (element?.textContent?.trim()) {
+      company = element.textContent.trim()
+      break
+    }
+  }
+  
+  console.log("[Employment-chan] Extracted job info:", { jobTitle, company })
+  return { jobTitle, company }
+}
+
+// Get application stats
+const getApplicationStats = async (): Promise<{ todayCount: number; totalCount: number }> => {
   return new Promise((resolve) => {
-    // Safety check for chrome.storage
     if (typeof chrome === "undefined" || !chrome.storage?.local) {
-      resolve(1)
+      resolve({ todayCount: 1, totalCount: 1 })
       return
     }
     
     chrome.storage.local.get(["applicationCount", "applications"], (result) => {
+      const totalCount = result.applicationCount || 0
+      const applications = result.applications || []
+      
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000
+      const todayCount = applications.filter(
+        (app: { timestamp: number }) => app.timestamp > oneDayAgo
+      ).length
+      
+      resolve({ todayCount, totalCount })
+    })
+  })
+}
+
+// Track application count and get AI message
+const incrementApplicationCount = async (): Promise<{
+  count: number
+  message: string
+  jobTitle?: string
+  company?: string
+}> => {
+  // Extract job info before incrementing (in case page changes)
+  const { jobTitle, company } = extractJobInfo()
+  
+  return new Promise((resolve) => {
+    // Safety check for chrome.storage
+    if (typeof chrome === "undefined" || !chrome.storage?.local) {
+      resolve({ 
+        count: 1, 
+        message: "You did it! One step closer to your dream job!",
+        jobTitle,
+        company
+      })
+      return
+    }
+    
+    chrome.storage.local.get(["applicationCount", "applications"], async (result) => {
       const newCount = (result.applicationCount || 0) + 1
       const applications = result.applications || []
       
@@ -102,14 +181,43 @@ const incrementApplicationCount = async (): Promise<number> => {
       applications.push({
         timestamp: Date.now(),
         site: "LinkedIn",
-        url: window.location.href
+        url: window.location.href,
+        jobTitle,
+        company
       })
       
       chrome.storage.local.set({ 
         applicationCount: newCount,
         applications: applications 
-      }, () => {
-        resolve(newCount)
+      }, async () => {
+        // Get today's count
+        const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000
+        const todayCount = applications.filter(
+          (app: { timestamp: number }) => app.timestamp > oneDayAgo
+        ).length
+        
+        // Request AI-generated message from background script
+        let message = "You did it! One step closer to your dream job!"
+        
+        try {
+          if (chrome.runtime?.sendMessage) {
+            const response = await chrome.runtime.sendMessage({
+              type: "GENERATE_CELEBRATION_MESSAGE",
+              jobTitle,
+              company,
+              todayCount,
+              totalCount: newCount
+            })
+            
+            if (response?.message) {
+              message = response.message
+            }
+          }
+        } catch (error) {
+          console.error("[Employment-chan] Error getting AI message:", error)
+        }
+        
+        resolve({ count: newCount, message, jobTitle, company })
       })
     })
   })
@@ -119,37 +227,32 @@ const incrementApplicationCount = async (): Promise<number> => {
 const CelebrationOverlay = ({
   show,
   onClose,
-  applicationCount
+  applicationCount,
+  message,
+  jobTitle,
+  company
 }: {
   show: boolean
   onClose: () => void
   applicationCount: number
+  message: string
+  jobTitle?: string
+  company?: string
 }) => {
   useEffect(() => {
     if (show) {
       // Play sound
       playCelebrationSound()
       
-      // Auto-close after 6 seconds
+      // Auto-close after 8 seconds (longer to read AI message)
       const timer = setTimeout(() => {
         onClose()
-      }, 6000)
+      }, 8000)
       return () => clearTimeout(timer)
     }
   }, [show, onClose])
 
   if (!show) return null
-
-  const messages = [
-    "You did it! One step closer to your dream job!",
-    "Amazing work! Keep that momentum going!",
-    "Another application sent! You're unstoppable!",
-    "Proud of you! Every application counts!",
-    "You're doing great! The right job is out there!",
-    "Keep going! Your dedication will pay off!"
-  ]
-  
-  const randomMessage = messages[Math.floor(Math.random() * messages.length)]
 
   return (
     <div className="ec-overlay" onClick={onClose}>
@@ -158,8 +261,15 @@ const CelebrationOverlay = ({
         <div className="ec-count-badge">
           Application #{applicationCount}
         </div>
+        {(jobTitle || company) && (
+          <div className="ec-job-info">
+            {jobTitle && <span className="ec-job-title">{jobTitle}</span>}
+            {jobTitle && company && <span className="ec-job-separator">at</span>}
+            {company && <span className="ec-job-company">{company}</span>}
+          </div>
+        )}
         <img src={waifuImage} alt="Congratulations!" className="ec-waifu" />
-        <p className="ec-message">{randomMessage}</p>
+        <p className="ec-message">{message}</p>
         <button className="ec-close-btn" onClick={onClose}>
           Thanks, Employment-chan!
         </button>
@@ -172,7 +282,11 @@ const CelebrationOverlay = ({
 const LinkedInWatcher = () => {
   const [showCelebration, setShowCelebration] = useState(false)
   const [applicationCount, setApplicationCount] = useState(0)
+  const [celebrationMessage, setCelebrationMessage] = useState("")
+  const [jobTitle, setJobTitle] = useState<string | undefined>()
+  const [company, setCompany] = useState<string | undefined>()
   const [triggeredUrls, setTriggeredUrls] = useState<Set<string>>(new Set())
+  const [isLoading, setIsLoading] = useState(false)
 
   const triggerCelebration = useCallback(async (url?: string) => {
     // Prevent double triggers for the same URL
@@ -181,15 +295,33 @@ const LinkedInWatcher = () => {
       return
     }
     
+    if (isLoading) {
+      console.log("[Employment-chan] Already loading, skipping")
+      return
+    }
+    
     if (url) {
       setTriggeredUrls(prev => new Set(prev).add(url))
     }
     
     console.log("[Employment-chan] Triggering celebration!")
-    const count = await incrementApplicationCount()
-    setApplicationCount(count)
-    setShowCelebration(true)
-  }, [triggeredUrls])
+    setIsLoading(true)
+    
+    try {
+      const result = await incrementApplicationCount()
+      setApplicationCount(result.count)
+      setCelebrationMessage(result.message)
+      setJobTitle(result.jobTitle)
+      setCompany(result.company)
+      setShowCelebration(true)
+    } catch (error) {
+      console.error("[Employment-chan] Error:", error)
+      setCelebrationMessage("You did it! One step closer to your dream job!")
+      setShowCelebration(true)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [triggeredUrls, isLoading])
 
   useEffect(() => {
     console.log("[Employment-chan] LinkedIn watcher activated!")
@@ -267,6 +399,9 @@ const LinkedInWatcher = () => {
       show={showCelebration}
       onClose={() => setShowCelebration(false)}
       applicationCount={applicationCount}
+      message={celebrationMessage}
+      jobTitle={jobTitle}
+      company={company}
     />
   )
 }
