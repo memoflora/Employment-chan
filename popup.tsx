@@ -10,6 +10,262 @@ interface ApplicationRecord {
   company?: string
 }
 
+// Confetti component
+const Confetti = () => {
+  const colors = ["#ff6b6b", "#ffd700", "#4ecdc4", "#ff8e53", "#a855f7", "#3b82f6"]
+  const confettiPieces = Array.from({ length: 50 }, (_, i) => ({
+    id: i,
+    left: Math.random() * 100,
+    delay: Math.random() * 3,
+    duration: 3 + Math.random() * 2,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    size: 8 + Math.random() * 8,
+    rotation: Math.random() * 360
+  }))
+
+  return (
+    <div style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      pointerEvents: "none",
+      overflow: "hidden"
+    }}>
+      {confettiPieces.map((piece) => (
+        <div
+          key={piece.id}
+          style={{
+            position: "absolute",
+            top: "-20px",
+            left: `${piece.left}%`,
+            width: `${piece.size}px`,
+            height: `${piece.size}px`,
+            backgroundColor: piece.color,
+            animation: `confetti-fall ${piece.duration}s linear ${piece.delay}s forwards`,
+            transform: `rotate(${piece.rotation}deg)`
+          }}
+        />
+      ))}
+      <style>{`
+        @keyframes confetti-fall {
+          0% {
+            transform: translateY(0) rotate(0deg) scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(100vh) rotate(720deg) scale(0.8);
+            opacity: 0;
+          }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// Play celebration sound
+const playCelebrationSound = () => {
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+  
+  const playNote = (frequency: number, startTime: number, duration: number) => {
+    const oscillator = audioContext.createOscillator()
+    const gainNode = audioContext.createGain()
+    
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContext.destination)
+    
+    oscillator.frequency.value = frequency
+    oscillator.type = "sine"
+    
+    gainNode.gain.setValueAtTime(0.3, startTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration)
+    
+    oscillator.start(startTime)
+    oscillator.stop(startTime + duration)
+  }
+  
+  const now = audioContext.currentTime
+  const notes = [523.25, 659.25, 783.99, 1046.50]
+  notes.forEach((note, i) => {
+    playNote(note, now + i * 0.15, 0.3)
+  })
+  
+  setTimeout(() => {
+    playNote(523.25, audioContext.currentTime, 0.5)
+    playNote(659.25, audioContext.currentTime, 0.5)
+    playNote(783.99, audioContext.currentTime, 0.5)
+  }, 600)
+}
+
+// Celebration Overlay Component
+const CelebrationOverlay = ({
+  show,
+  onClose,
+  applicationCount,
+  message,
+  jobTitle,
+  company
+}: {
+  show: boolean
+  onClose: () => void
+  applicationCount: number
+  message: string
+  jobTitle?: string
+  company?: string
+}) => {
+  useEffect(() => {
+    if (show) {
+      playCelebrationSound()
+      const timer = setTimeout(() => {
+        onClose()
+      }, 8000)
+      return () => clearTimeout(timer)
+    }
+  }, [show, onClose])
+
+  if (!show) return null
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        background: "rgba(0, 0, 0, 0.75)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 999999,
+        animation: "fadeIn 0.3s ease-out"
+      }}
+      onClick={onClose}>
+      <Confetti />
+      <div
+        style={{
+          position: "relative",
+          background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)",
+          borderRadius: 20,
+          padding: 30,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 16,
+          maxWidth: "90vw",
+          maxHeight: "90vh",
+          border: "3px solid #ffd700",
+          animation: "bounceIn 0.5s ease-out, sparkle 2s ease-in-out infinite"
+        }}
+        onClick={(e) => e.stopPropagation()}>
+        <div
+          style={{
+            background: "linear-gradient(135deg, #a855f7 0%, #6366f1 100%)",
+            color: "white",
+            padding: "8px 20px",
+            borderRadius: 20,
+            fontSize: "0.9rem",
+            fontWeight: 700,
+            letterSpacing: "0.5px"
+          }}>
+          Application #{applicationCount}
+        </div>
+        {(jobTitle || company) && (
+          <div style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 6,
+            maxWidth: 380,
+            textAlign: "center"
+          }}>
+            {jobTitle && <span style={{ color: "#4ecdc4", fontWeight: 600, fontSize: "0.95rem" }}>{jobTitle}</span>}
+            {jobTitle && company && <span style={{ color: "#888", fontSize: "0.85rem" }}>at</span>}
+            {company && <span style={{ color: "#a855f7", fontWeight: 600, fontSize: "0.95rem" }}>{company}</span>}
+          </div>
+        )}
+        <img
+          src={waifuImage}
+          alt="Employment-chan"
+          style={{
+            maxWidth: 350,
+            maxHeight: "45vh",
+            borderRadius: 15,
+            objectFit: "contain",
+            filter: "drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3))"
+          }}
+        />
+        <p style={{
+          color: "#fff",
+          fontSize: "1.3rem",
+          fontWeight: 600,
+          textAlign: "center",
+          margin: 0,
+          maxWidth: 380,
+          lineHeight: 1.4,
+          textShadow: "2px 2px 4px rgba(0, 0, 0, 0.3)"
+        }}>
+          {message}
+        </p>
+        <button
+          onClick={onClose}
+          style={{
+            background: "linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%)",
+            color: "white",
+            border: "none",
+            padding: "14px 32px",
+            fontSize: "1rem",
+            fontWeight: 600,
+            borderRadius: 25,
+            cursor: "pointer",
+            boxShadow: "0 4px 15px rgba(255, 107, 107, 0.3)",
+            transition: "all 0.3s ease"
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "scale(1.05)"
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "scale(1)"
+          }}>
+          Thanks, Employment-chan!
+        </button>
+      </div>
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes bounceIn {
+          0% {
+            transform: scale(0.3) translateY(100px);
+            opacity: 0;
+          }
+          50% {
+            transform: scale(1.05) translateY(-10px);
+          }
+          70% {
+            transform: scale(0.95) translateY(5px);
+          }
+          100% {
+            transform: scale(1) translateY(0);
+            opacity: 1;
+          }
+        }
+        @keyframes sparkle {
+          0%, 100% {
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.4), 0 0 40px rgba(255, 215, 0, 0.2), 0 0 60px rgba(255, 215, 0, 0.1);
+          }
+          50% {
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.6), 0 0 60px rgba(255, 215, 0, 0.4), 0 0 90px rgba(255, 215, 0, 0.2);
+          }
+        }
+      `}</style>
+    </div>
+  )
+}
+
 function IndexPopup() {
   const [applicationCount, setApplicationCount] = useState(0)
   const [todayCount, setTodayCount] = useState(0)
@@ -19,6 +275,13 @@ function IndexPopup() {
   const [manualCompany, setManualCompany] = useState("")
   const [manualPosition, setManualPosition] = useState("")
   const [activeTab, setActiveTab] = useState<"stats" | "tracker">("stats")
+  const [showCelebration, setShowCelebration] = useState(false)
+  const [celebrationData, setCelebrationData] = useState<{
+    count: number
+    message: string
+    jobTitle?: string
+    company?: string
+  } | null>(null)
 
   const loadApplications = () => {
     // Load stats from storage (with safety check)
@@ -59,13 +322,58 @@ function IndexPopup() {
     }
   }
 
-  const handleManualAdd = () => {
+  const getAIMessage = async (todayCount: number, totalCount: number, jobTitle?: string, company?: string): Promise<string> => {
+    const BACKEND_URL = process.env.PLASMO_PUBLIC_BACKEND_URL || "http://localhost:5000"
+    
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/generate-message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobTitle, company, todayCount, totalCount })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.message) {
+          return data.message
+        }
+      }
+    } catch (error) {
+      console.error("[Employment-chan] Error getting AI message:", error)
+    }
+    
+    // Fallback message
+    const messages = [
+      "Yatta~! You did it! One step closer to your dream job, ne~ (๑>◡<๑)",
+      "Sugoi! Keep that momentum going~! Ganbare! ♡",
+      "Another application sent! You're unstoppable~ ٩(◕‿◕｡)۶",
+      "I'm so proud of you! Every application counts, ne~! ☆",
+      "You're doing amazing! The right job is out there waiting for you~!",
+      "Fighto! Your dedication will definitely pay off! (ﾉ◕ヮ◕)ﾉ*:・ﾟ✧"
+    ]
+    
+    if (totalCount === 1) {
+      return "Your first application! Sugoi~! This is just the beginning of something great, ne~ (๑>◡<๑) ♡"
+    } else if (totalCount === 10) {
+      return "Yatta~! 10 applications! You're building such amazing momentum! Ganbare! ٩(◕‿◕｡)۶"
+    } else if (totalCount === 25) {
+      return "25 applications?! Sugoi sugoi~! Your persistence is truly inspiring! ☆"
+    } else if (totalCount === 50) {
+      return "50 applications! You're like a job hunting hero~! I'm so proud of you! (ﾉ◕ヮ◕)ﾉ*:・ﾟ✧"
+    } else if (totalCount === 100) {
+      return "100 APPLICATIONS?! SUGOI~! You're absolutely legendary! I believe in you so much! ♡♡♡"
+    }
+    
+    return messages[Math.floor(Math.random() * messages.length)]
+  }
+
+  const handleManualAdd = async () => {
     if (!manualCompany.trim() || !manualPosition.trim()) {
       return
     }
 
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      chrome.storage.local.get(["applicationCount", "applications"], (result) => {
+      chrome.storage.local.get(["applicationCount", "applications"], async (result) => {
         const newCount = (result.applicationCount || 0) + 1
         const apps: ApplicationRecord[] = result.applications || []
 
@@ -79,6 +387,19 @@ function IndexPopup() {
 
         apps.push(newApp)
 
+        // Get today's count
+        const now = Date.now()
+        const oneDayAgo = now - 24 * 60 * 60 * 1000
+        const todayCount = apps.filter((app) => app.timestamp > oneDayAgo).length
+
+        // Get AI message
+        const message = await getAIMessage(
+          todayCount,
+          newCount,
+          manualPosition.trim(),
+          manualCompany.trim()
+        )
+
         chrome.storage.local.set(
           {
             applicationCount: newCount,
@@ -88,6 +409,46 @@ function IndexPopup() {
             setManualCompany("")
             setManualPosition("")
             setShowManualForm(false)
+            loadApplications()
+            
+            // Show celebration
+            setCelebrationData({
+              count: newCount,
+              message,
+              jobTitle: manualPosition.trim(),
+              company: manualCompany.trim()
+            })
+            setShowCelebration(true)
+          }
+        )
+      })
+    }
+  }
+
+  const handleDelete = (index: number) => {
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      const sortedApps = [...applications].sort((a, b) => b.timestamp - a.timestamp)
+      const appToDelete = sortedApps[index]
+      
+      chrome.storage.local.get(["applicationCount", "applications"], (result) => {
+        const apps: ApplicationRecord[] = result.applications || []
+        const filteredApps = apps.filter((app) => {
+          // Match by timestamp and company/jobTitle to ensure we delete the right one
+          return !(
+            app.timestamp === appToDelete.timestamp &&
+            app.company === appToDelete.company &&
+            app.jobTitle === appToDelete.jobTitle
+          )
+        })
+        
+        const newCount = Math.max(0, (result.applicationCount || 0) - 1)
+        
+        chrome.storage.local.set(
+          {
+            applicationCount: newCount,
+            applications: filteredApps
+          },
+          () => {
             loadApplications()
           }
         )
@@ -110,6 +471,20 @@ function IndexPopup() {
   const sortedApplications = [...applications].sort((a, b) => b.timestamp - a.timestamp)
 
   return (
+    <>
+      {showCelebration && celebrationData && (
+        <CelebrationOverlay
+          show={showCelebration}
+          onClose={() => {
+            setShowCelebration(false)
+            setCelebrationData(null)
+          }}
+          applicationCount={celebrationData.count}
+          message={celebrationData.message}
+          jobTitle={celebrationData.jobTitle}
+          company={celebrationData.company}
+        />
+      )}
     <div
       style={{
         width: 400,
@@ -487,7 +862,8 @@ function IndexPopup() {
                         borderRadius: 10,
                         padding: 12,
                         border: "1px solid rgba(255, 255, 255, 0.1)",
-                        transition: "all 0.2s"
+                        transition: "all 0.2s",
+                        position: "relative"
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)"
@@ -497,12 +873,45 @@ function IndexPopup() {
                         e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"
                         e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)"
                       }}>
+                      <button
+                        onClick={() => handleDelete(index)}
+                        style={{
+                          position: "absolute",
+                          top: 8,
+                          right: 8,
+                          background: "rgba(255, 107, 107, 0.2)",
+                          border: "1px solid rgba(255, 107, 107, 0.5)",
+                          borderRadius: 6,
+                          width: 24,
+                          height: 24,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          color: "#ff6b6b",
+                          fontSize: 14,
+                          fontWeight: 600,
+                          padding: 0,
+                          transition: "all 0.2s"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "rgba(255, 107, 107, 0.4)"
+                          e.currentTarget.style.transform = "scale(1.1)"
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "rgba(255, 107, 107, 0.2)"
+                          e.currentTarget.style.transform = "scale(1)"
+                        }}
+                        title="Delete application">
+                        ×
+                      </button>
                       <div
                         style={{
                           display: "flex",
                           justifyContent: "space-between",
                           alignItems: "flex-start",
-                          marginBottom: 6
+                          marginBottom: 6,
+                          paddingRight: 32
                         }}>
                         <div style={{ flex: 1 }}>
                           {app.company && (
@@ -561,6 +970,7 @@ function IndexPopup() {
         )}
       </div>
     </div>
+    </>
   )
 }
 
