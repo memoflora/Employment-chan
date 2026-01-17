@@ -1,0 +1,191 @@
+/* Employment-chan Celebration Styles */
+
+.ec-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999999;
+  animation: ec-fade-in 0.3s ease-out;
+  overflow: hidden;
+}
+
+@keyframes ec-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ec-bounce-in {
+  0% {
+    transform: scale(0.3) translateY(100px);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05) translateY(-10px);
+  }
+  70% {
+    transform: scale(0.95) translateY(5px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes ec-sparkle {
+  0%, 100% {
+    box-shadow: 
+      0 0 20px rgba(255, 215, 0, 0.4),
+      0 0 40px rgba(255, 215, 0, 0.2),
+      0 0 60px rgba(255, 215, 0, 0.1);
+  }
+  50% {
+    box-shadow: 
+      0 0 30px rgba(255, 215, 0, 0.6),
+      0 0 60px rgba(255, 215, 0, 0.4),
+      0 0 90px rgba(255, 215, 0, 0.2);
+  }
+}
+
+/* Confetti Animations */
+.ec-confetti-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ec-confetti {
+  position: absolute;
+  top: -20px;
+  animation: ec-confetti-fall linear forwards;
+  opacity: 0.9;
+}
+
+@keyframes ec-confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  25% {
+    transform: translateY(25vh) rotate(180deg) scale(0.9) translateX(20px);
+  }
+  50% {
+    transform: translateY(50vh) rotate(360deg) scale(1) translateX(-20px);
+  }
+  75% {
+    transform: translateY(75vh) rotate(540deg) scale(0.9) translateX(10px);
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg) scale(0.8);
+    opacity: 0;
+  }
+}
+
+/* Count Badge */
+.ec-count-badge {
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+  color: white;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: 0.5px;
+  animation: ec-badge-pop 0.5s ease-out 0.3s both;
+  box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
+}
+
+@keyframes ec-badge-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.ec-container {
+  position: relative;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 20px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: 90vw;
+  max-height: 90vh;
+  border: 3px solid #ffd700;
+  animation: ec-bounce-in 0.5s ease-out, ec-sparkle 2s ease-in-out infinite;
+}
+
+.ec-waifu {
+  max-width: 400px;
+  max-height: 55vh;
+  border-radius: 15px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3));
+  animation: ec-waifu-float 3s ease-in-out infinite;
+}
+
+@keyframes ec-waifu-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.ec-message {
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 600;
+  text-align: center;
+  margin: 0;
+  max-width: 380px;
+  line-height: 1.4;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.ec-close-btn {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+  color: white;
+  border: none;
+  padding: 14px 32px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+}
+
+.ec-close-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 25px rgba(255, 107, 107, 0.5);
+}
+
+.ec-close-btn:active {
+  transform: scale(0.98);
+}

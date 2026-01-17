@@ -1,9 +1,9 @@
 {
-  "name": "temp",
-  "displayName": "Temp",
+  "name": "employment-chan",
+  "displayName": "Employment-chan",
   "version": "0.0.1",
-  "description": "A basic Plasmo extension.",
-  "author": "Plasmo Corp. <foss@plasmo.com>",
+  "description": "Your anime companion celebrates every job application submission with you!",
+  "author": "Hack&Roll 2026",
   "scripts": {
     "dev": "plasmo dev",
     "build": "plasmo build",
@@ -24,8 +24,17 @@
     "typescript": "5.3.3"
   },
   "manifest": {
+    "permissions": [
+      "storage"
+    ],
     "host_permissions": [
       "https://*/*"
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": ["assets/waifu.jpeg"],
+        "matches": ["https://www.linkedin.com/*"]
+      }
     ]
   }
 }
