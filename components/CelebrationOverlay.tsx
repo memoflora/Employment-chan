@@ -326,21 +326,19 @@ export const CelebrationOverlay = ({
     ]
     setConversationHistory(newHistory)
     
-    // Check if this should be the final round (after 2-3 exchanges)
-    const shouldBeFinal = dialogueRound >= 2
-    
-    // Get response from Employment-chan
+    // Get response from Employment-chan (never force final - user can exit anytime)
     const response = await continueDialogue(
       choice, 
       newHistory, 
       context || { todayCount: 1, totalCount: applicationCount },
-      shouldBeFinal
+      false // Never force final - let user exit when they want
     )
     
     // Update state with new message
     setCurrentMessage(response.message)
     setCurrentChoices(response.choices)
-    setIsFinalMessage(response.isFinal || response.choices.length === 0)
+    // Only end if backend returns no choices (shouldn't happen now)
+    setIsFinalMessage(response.choices.length === 0)
     setDialogueRound(prev => prev + 1)
     
     // Add Employment-chan's response to history
