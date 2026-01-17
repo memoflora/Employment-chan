@@ -6,6 +6,7 @@ interface DialogueContext {
   company?: string
   todayCount: number
   totalCount: number
+  crazinessLevel?: number
 }
 
 interface GenerateDialogueRequest {
@@ -14,6 +15,7 @@ interface GenerateDialogueRequest {
   company?: string
   todayCount: number
   totalCount: number
+  crazinessLevel?: number
 }
 
 interface ContinueDialogueRequest {
@@ -82,14 +84,14 @@ chrome.runtime.onMessage.addListener(
 async function generateDialogue(
   request: GenerateDialogueRequest
 ): Promise<DialogueResponse> {
-  const { jobTitle, company, todayCount, totalCount } = request
+  const { jobTitle, company, todayCount, totalCount, crazinessLevel } = request
 
   try {
     console.log("[Employment-chan] Calling Flask backend for dialogue")
     const response = await fetch(`${BACKEND_URL}/api/generate-dialogue`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobTitle, company, todayCount, totalCount })
+      body: JSON.stringify({ jobTitle, company, todayCount, totalCount, crazinessLevel: crazinessLevel || 2 })
     })
 
     if (response.ok) {

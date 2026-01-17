@@ -85,9 +85,10 @@ const incrementApplicationCount = async (): Promise<{
       return
     }
     
-    chrome.storage.local.get(["applicationCount", "applications"], async (result) => {
+    chrome.storage.local.get(["applicationCount", "applications", "crazinessLevel"], async (result) => {
       const newCount = (result.applicationCount || 0) + 1
       const applications = result.applications || []
+      const crazinessLevel = result.crazinessLevel || 2
       
       // Add this application to the list
       const newApplication = {
@@ -116,7 +117,8 @@ const incrementApplicationCount = async (): Promise<{
         jobTitle,
         company,
         todayCount,
-        totalCount: newCount
+        totalCount: newCount,
+        crazinessLevel
       }
       
       // Get personalized message from backend via background script
@@ -130,7 +132,8 @@ const incrementApplicationCount = async (): Promise<{
             jobTitle,
             company,
             todayCount,
-            totalCount: newCount
+            totalCount: newCount,
+            crazinessLevel
           })
           
           if (response?.message) {

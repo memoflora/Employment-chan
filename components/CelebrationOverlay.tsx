@@ -10,6 +10,7 @@ export interface DialogueContext {
   company?: string
   todayCount: number
   totalCount: number
+  crazinessLevel?: number
 }
 
 // Audio context singleton

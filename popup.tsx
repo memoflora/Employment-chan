@@ -34,6 +34,16 @@ const triggerCelebrationOnCurrentTab = async (data: {
   }
 }
 
+// Craziness level labels
+const CRAZINESS_LABELS = [
+  "", // 0 - not used
+  "Tsundere",
+  "Supportive", 
+  "Flirty",
+  "Obsessive",
+  "Yandere"
+]
+
 function IndexPopup() {
   const [applicationCount, setApplicationCount] = useState(0)
   const [todayCount, setTodayCount] = useState(0)
@@ -43,12 +53,14 @@ function IndexPopup() {
   const [manualCompany, setManualCompany] = useState("")
   const [manualPosition, setManualPosition] = useState("")
   const [activeTab, setActiveTab] = useState<"stats" | "tracker">("stats")
+  const [crazinessLevel, setCrazinessLevel] = useState(2) // Default to "Supportive"
 
   const loadApplications = () => {
     // Load stats from storage (with safety check)
     if (typeof chrome !== "undefined" && chrome.storage?.local) {
-      chrome.storage.local.get(["applicationCount", "applications"], (result) => {
+      chrome.storage.local.get(["applicationCount", "applications", "crazinessLevel"], (result) => {
         setApplicationCount(result.applicationCount || 0)
+        setCrazinessLevel(result.crazinessLevel || 2)
 
         const apps: ApplicationRecord[] = result.applications || []
         setApplications(apps)
@@ -62,6 +74,13 @@ function IndexPopup() {
         setTodayCount(today)
         setWeekCount(week)
       })
+    }
+  }
+
+  const handleCrazinessChange = (level: number) => {
+    setCrazinessLevel(level)
+    if (typeof chrome !== "undefined" && chrome.storage?.local) {
+      chrome.storage.local.set({ crazinessLevel: level })
     }
   }
 
@@ -87,7 +106,8 @@ function IndexPopup() {
     todayCount: number, 
     totalCount: number, 
     jobTitle?: string, 
-    company?: string
+    company?: string,
+    craziness?: number
   ): Promise<{ message: string; choices: string[] }> => {
     const BACKEND_URL = process.env.PLASMO_PUBLIC_BACKEND_URL || "http://localhost:5000"
     
@@ -95,7 +115,7 @@ function IndexPopup() {
       const response = await fetch(`${BACKEND_URL}/api/generate-dialogue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobTitle, company, todayCount, totalCount })
+        body: JSON.stringify({ jobTitle, company, todayCount, totalCount, crazinessLevel: craziness || 2 })
       })
 
       if (response.ok) {
@@ -171,7 +191,8 @@ function IndexPopup() {
           todayCount,
           newCount,
           manualPosition.trim(),
-          manualCompany.trim()
+          manualCompany.trim(),
+          crazinessLevel
         )
 
         chrome.storage.local.set(
@@ -386,6 +407,81 @@ function IndexPopup() {
                 fontStyle: "italic"
               }}>
               "{getMotivationalMessage()}"
+            </p>
+
+            {/* Craziness Slider */}
+            <div
+              style={{
+                background: "linear-gradient(135deg, rgba(255, 107, 107, 0.15), rgba(168, 85, 247, 0.15))",
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 16,
+                border: "1px solid rgba(255, 107, 107, 0.3)"
+              }}>
+              <div style={{ 
+                display: "flex", 
+                justifyContent: "space-between", 
+                alignItems: "center",
+                marginBottom: 12
+              }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>
+                  Personality Mode
+                </span>
+                <span style={{ 
+                  fontSize: 11, 
+                  fontWeight: 700,
+                  color: crazinessLevel <= 2 ? "#4ecdc4" : crazinessLevel <= 3 ? "#ffd700" : "#ff6b6b",
+                  background: crazinessLevel <= 2 ? "rgba(78, 205, 196, 0.2)" : crazinessLevel <= 3 ? "rgba(255, 215, 0, 0.2)" : "rgba(255, 107, 107, 0.2)",
+                  padding: "4px 10px",
+                  borderRadius: 8
+                }}>
+                  {CRAZINESS_LABELS[crazinessLevel]}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 10, color: "#888", minWidth: 50 }}>Tsundere</span>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={crazinessLevel}
+                  onChange={(e) => handleCrazinessChange(parseInt(e.target.value))}
+                  style={{
+                    flex: 1,
+                    height: 6,
+                    borderRadius: 3,
+                    background: `linear-gradient(to right, #4ecdc4 0%, #ffd700 50%, #ff6b6b 100%)`,
+                    appearance: "none",
+                    WebkitAppearance: "none",
+                    cursor: "pointer"
+                  }}
+                />
+                <span style={{ fontSize: 10, color: "#888", minWidth: 50, textAlign: "right" }}>Yandere</span>
+              </div>
+              <div style={{ 
+                fontSize: 10, 
+                color: "#888", 
+                textAlign: "center", 
+                marginTop: 8,
+                fontStyle: "italic"
+              }}>
+                {crazinessLevel === 1 && "B-baka! It's not like I care about your job search or anything..."}
+                {crazinessLevel === 2 && "I believe in you! You've got this! ♡"}
+                {crazinessLevel === 3 && "You're so amazing~ I love watching you succeed~"}
+                {crazinessLevel === 4 && "I've memorized all your applications... I'm always thinking about you~"}
+                {crazinessLevel === 5 && "You're mine forever~ No one else can have you~ ♡"}
+              </div>
+            </div>
+
+            <p
+              style={{
+                fontSize: 12,
+                color: "#ccc",
+                textAlign: "center",
+                margin: "0 0 16px 0",
+                lineHeight: 1.5,
+                display: "none" // Hidden duplicate
+              }}>
             </p>
 
             {/* Supported Sites */}
