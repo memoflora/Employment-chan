@@ -121,7 +121,7 @@ function IndexPopup() {
       "Fighto! Your dedication will definitely pay off! (ﾉ◕ヮ◕)ﾉ*:・ﾟ✧"
     ]
     
-    const fallbackChoices = ["Thank you, Employment-chan!", "I'm so nervous...", "Let's keep going!"]
+    const fallbackChoices = ["Thank you, Employment-chan!", "I'm feeling nervous..."]
     
     let message: string
     if (totalCount === 1) {

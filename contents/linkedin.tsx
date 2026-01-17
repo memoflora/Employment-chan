@@ -77,7 +77,7 @@ const incrementApplicationCount = async (): Promise<{
       resolve({ 
         count: 1, 
         message: "Yatta~! You did it! One step closer to your dream job, ne~ ♡",
-        choices: ["Thank you, Employment-chan!", "I'm so nervous...", "Let's keep going!"],
+        choices: ["Thank you, Employment-chan!", "I'm feeling nervous..."],
         context: { jobTitle, company, todayCount: 1, totalCount: 1 },
         jobTitle,
         company
@@ -121,7 +121,7 @@ const incrementApplicationCount = async (): Promise<{
       
       // Get personalized message from backend via background script
       let message = "Yatta~! You did it! One step closer to your dream job, ne~ ♡"
-      let choices = ["Thank you, Employment-chan!", "I'm so nervous...", "Let's keep going!"]
+      let choices = ["Thank you, Employment-chan!", "I'm feeling nervous..."]
       
       try {
         if (chrome.runtime?.sendMessage) {

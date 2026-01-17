@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react"
 
 // Import both mouth states for talking animation
 import waifuMouthClosed from "data-base64:~assets/waifu-with-mouth-closed.jpeg"
@@ -292,6 +292,9 @@ export const CelebrationOverlay = ({
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: string; content: string }>>([])
   const [dialogueRound, setDialogueRound] = useState(0)
   const [isFinalMessage, setIsFinalMessage] = useState(!interactive)
+  const [customInput, setCustomInput] = useState("")
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
   
   // Reset state when overlay shows
   useEffect(() => {
@@ -304,8 +307,64 @@ export const CelebrationOverlay = ({
       setConversationHistory([{ role: "assistant", content: initialMessage }])
       setDialogueRound(0)
       setIsFinalMessage(!interactive)
+      setCustomInput("")
+      setIsListening(false)
     }
   }, [show, initialMessage, initialChoices, interactive])
+  
+  // Initialize speech recognition
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition()
+      recognitionRef.current.continuous = false
+      recognitionRef.current.interimResults = true
+      recognitionRef.current.lang = 'en-US'
+      
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join('')
+        setCustomInput(transcript)
+      }
+      
+      recognitionRef.current.onend = () => {
+        setIsListening(false)
+      }
+      
+      recognitionRef.current.onerror = () => {
+        setIsListening(false)
+      }
+    }
+    
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort()
+      }
+    }
+  }, [])
+  
+  const toggleVoiceInput = () => {
+    if (!recognitionRef.current) {
+      alert("Voice input is not supported in this browser")
+      return
+    }
+    
+    if (isListening) {
+      recognitionRef.current.stop()
+      setIsListening(false)
+    } else {
+      recognitionRef.current.start()
+      setIsListening(true)
+    }
+  }
+  
+  const handleCustomSubmit = () => {
+    if (customInput.trim() && !isLoadingResponse && isTypingComplete) {
+      handleChoiceSelect(customInput.trim())
+      setCustomInput("")
+    }
+  }
   
   const handleTypingStateChange = useCallback((typing: boolean) => {
     if (!typing) {
@@ -389,9 +448,10 @@ export const CelebrationOverlay = ({
         </div>
         
         {/* Dialogue Choices - only show if interactive */}
-        {interactive && isTypingComplete && !isLoadingResponse && currentChoices.length > 0 && !isFinalMessage && (
+        {interactive && isTypingComplete && !isLoadingResponse && !isFinalMessage && (
           <div className="ec-choices">
-            {currentChoices.map((choice, index) => (
+            {/* Show only first 2 choices */}
+            {currentChoices.slice(0, 2).map((choice, index) => (
               <button
                 key={index}
                 className="ec-choice-btn"
@@ -400,12 +460,50 @@ export const CelebrationOverlay = ({
                 {choice}
               </button>
             ))}
+            
+            {/* Custom input with voice option */}
+            <div className="ec-custom-input-container">
+              <input
+                type="text"
+                className="ec-custom-input"
+                placeholder="Type your own response..."
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                  if (e.key === 'Enter') {
+                    handleCustomSubmit()
+                  }
+                }}
+              />
+              <button
+                className={`ec-mic-btn ${isListening ? 'ec-mic-listening' : ''}`}
+                onClick={toggleVoiceInput}
+                title={isListening ? "Stop listening" : "Voice input"}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="23"/>
+                  <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+              </button>
+              <button
+                className="ec-send-btn"
+                onClick={handleCustomSubmit}
+                disabled={!customInput.trim()}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+              </button>
+            </div>
+            
             {/* Always show exit option */}
             <button
               className="ec-choice-btn ec-choice-exit"
               onClick={handleClose}
             >
-              Time to apply to more jobs! 💼
+              Time to apply to more jobs!
             </button>
           </div>
         )}

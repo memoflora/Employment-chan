@@ -60,7 +60,7 @@ def generate_dialogue():
         prompt = f"""{job_context}
 {stats_context}
 
-Generate Employment-chan's celebratory greeting AND 2-3 response choices for the user.
+Generate Employment-chan's celebratory greeting AND exactly 2 response choices for the user.
 
 The response choices should be things the user might say back to Employment-chan, like:
 - Expressing gratitude
@@ -197,15 +197,14 @@ Just respond with the message, no JSON needed."""
             })
         else:
             # Continue conversation with new choices
-            prompt = """Respond to what the user said and generate 2-3 new response choices for them.
+            prompt = """Respond to what the user said and generate exactly 2 new response choices for them.
 
 Respond in this exact JSON format:
 {
     "message": "Employment-chan's response (1-2 sentences, stay in character)",
     "choices": [
         "User's first response option",
-        "User's second response option", 
-        "User's third response option (optional)"
+        "User's second response option"
     ]
 }
 
