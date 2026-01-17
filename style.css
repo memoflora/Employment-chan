@@ -155,19 +155,19 @@
 
 .ec-job-title {
   color: #4ecdc4;
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-weight: 700;
+  font-size: 15px;
 }
 
 .ec-job-separator {
   color: #888;
-  font-size: 0.85rem;
+  font-size: 15px;
 }
 
 .ec-job-company {
   color: #a855f7;
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-weight: 700;
+  font-size: 15px;
 }
 
 .ec-waifu-container {

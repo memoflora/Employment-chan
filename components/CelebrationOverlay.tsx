@@ -466,7 +466,7 @@ export const CelebrationOverlay = ({
               <input
                 type="text"
                 className="ec-custom-input"
-                placeholder="Type your own response..."
+                placeholder="Ask Employment-chan anything..."
                 value={customInput}
                 onChange={(e) => setCustomInput(e.target.value)}
                 onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
