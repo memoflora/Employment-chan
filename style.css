@@ -166,34 +166,85 @@
   font-size: 0.95rem;
 }
 
+.ec-waifu-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 350px;
+}
+
 .ec-waifu {
-  max-width: 400px;
-  max-height: 55vh;
+  max-width: 350px;
+  max-height: 45vh;
   border-radius: 15px;
   object-fit: contain;
   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3));
-  animation: ec-waifu-float 3s ease-in-out infinite;
+  margin: 0 auto;
 }
 
-@keyframes ec-waifu-float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
+/* Speech Bubble */
+.ec-speech-bubble {
+  background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
+  border-radius: 20px;
+  padding: 20px 25px;
+  position: relative;
+  max-width: 400px;
+  min-height: 60px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  border: 2px solid #ffd700;
+}
+
+/* Speech bubble tail */
+.ec-speech-bubble::before {
+  content: "";
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-bottom: 15px solid #ffd700;
+}
+
+.ec-speech-bubble::after {
+  content: "";
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 12px solid #ffffff;
 }
 
 .ec-message {
-  color: #fff;
-  font-size: 1.3rem;
-  font-weight: 600;
+  color: #1a1a2e;
+  font-size: 1.1rem;
+  font-weight: 500;
   text-align: center;
   margin: 0;
-  max-width: 380px;
-  line-height: 1.4;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  font-family: "Comic Sans MS", "Chalkboard", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Typing cursor */
+.ec-cursor {
+  display: inline-block;
+  color: #ff6b6b;
+  font-weight: 700;
+  animation: ec-cursor-blink 0.6s ease-in-out infinite;
+  margin-left: 2px;
+}
+
+@keyframes ec-cursor-blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
 }
 
 .ec-close-btn {
@@ -210,11 +261,17 @@
   box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
 }
 
-.ec-close-btn:hover {
+.ec-close-btn:hover:not(.ec-close-btn-disabled) {
   transform: scale(1.05);
   box-shadow: 0 6px 25px rgba(255, 107, 107, 0.5);
 }
 
-.ec-close-btn:active {
+.ec-close-btn:active:not(.ec-close-btn-disabled) {
   transform: scale(0.98);
+}
+
+.ec-close-btn-disabled {
+  background: linear-gradient(135deg, #666 0%, #888 100%);
+  cursor: not-allowed;
+  opacity: 0.7;
 }

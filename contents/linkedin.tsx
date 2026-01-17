@@ -1,8 +1,17 @@
 import cssText from "data-text:~style.css"
 import type { PlasmoCSConfig } from "plasmo"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
-import waifuImage from "data-base64:~assets/waifu.jpeg"
+// Import both mouth states for talking animation
+import waifuMouthClosed from "data-base64:~assets/waifu-with-mouth-closed.jpeg"
+import waifuMouthOpen from "data-base64:~assets/waifu-with-mouth-opened.jpeg"
+
+// Debug: Log if images are different
+console.log("[Employment-chan] Images loaded - are they different?", 
+  waifuMouthClosed !== waifuMouthOpen, 
+  "Closed length:", waifuMouthClosed?.length, 
+  "Open length:", waifuMouthOpen?.length
+)
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.linkedin.com/*"]
@@ -48,22 +57,31 @@ const Confetti = () => {
   )
 }
 
-// Play celebration sound
+// Audio context singleton
+let audioContext: AudioContext | null = null
+
+const getAudioContext = () => {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+  }
+  return audioContext
+}
+
+// Play celebration sound (initial jingle)
 const playCelebrationSound = () => {
-  // Create a simple celebration jingle using Web Audio API
-  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+  const ctx = getAudioContext()
   
   const playNote = (frequency: number, startTime: number, duration: number) => {
-    const oscillator = audioContext.createOscillator()
-    const gainNode = audioContext.createGain()
+    const oscillator = ctx.createOscillator()
+    const gainNode = ctx.createGain()
     
     oscillator.connect(gainNode)
-    gainNode.connect(audioContext.destination)
+    gainNode.connect(ctx.destination)
     
     oscillator.frequency.value = frequency
     oscillator.type = "sine"
     
-    gainNode.gain.setValueAtTime(0.3, startTime)
+    gainNode.gain.setValueAtTime(0.2, startTime)
     gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration)
     
     oscillator.start(startTime)
@@ -71,18 +89,165 @@ const playCelebrationSound = () => {
   }
   
   // Play a cheerful ascending melody
-  const now = audioContext.currentTime
+  const now = ctx.currentTime
   const notes = [523.25, 659.25, 783.99, 1046.50] // C5, E5, G5, C6
   notes.forEach((note, i) => {
-    playNote(note, now + i * 0.15, 0.3)
+    playNote(note, now + i * 0.12, 0.25)
   })
+}
+
+// Play "mimimi" talking sound like Animal Crossing
+const playMimiSound = () => {
+  const ctx = getAudioContext()
+  const now = ctx.currentTime
   
-  // Final chord
-  setTimeout(() => {
-    playNote(523.25, audioContext.currentTime, 0.5)
-    playNote(659.25, audioContext.currentTime, 0.5)
-    playNote(783.99, audioContext.currentTime, 0.5)
-  }, 600)
+  // Create a cute "mi" sound - high pitched blip
+  const oscillator = ctx.createOscillator()
+  const gainNode = ctx.createGain()
+  
+  oscillator.connect(gainNode)
+  gainNode.connect(ctx.destination)
+  
+  // Randomize pitch slightly for variety (like Animal Crossing)
+  const baseFreq = 600 + Math.random() * 200 // 600-800 Hz range
+  oscillator.frequency.setValueAtTime(baseFreq, now)
+  oscillator.frequency.exponentialRampToValueAtTime(baseFreq * 0.8, now + 0.05)
+  oscillator.type = "sine"
+  
+  // Quick attack, quick decay
+  gainNode.gain.setValueAtTime(0, now)
+  gainNode.gain.linearRampToValueAtTime(0.15, now + 0.01)
+  gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.06)
+  
+  oscillator.start(now)
+  oscillator.stop(now + 0.07)
+}
+
+// Typewriter text component with talking animation
+const TypewriterText = ({
+  text,
+  onTypingStateChange,
+  speed = 30
+}: {
+  text: string
+  onTypingStateChange: (isTyping: boolean) => void
+  speed?: number
+}) => {
+  const [displayedText, setDisplayedText] = useState("")
+  const [isComplete, setIsComplete] = useState(false)
+  const indexRef = useRef(0)
+  const callbackRef = useRef(onTypingStateChange)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Keep callback ref updated
+  useEffect(() => {
+    callbackRef.current = onTypingStateChange
+  }, [onTypingStateChange])
+  
+  useEffect(() => {
+    if (!text) return
+    
+    console.log("[Employment-chan] Starting typewriter for:", text.substring(0, 30) + "...")
+    
+    setDisplayedText("")
+    setIsComplete(false)
+    indexRef.current = 0
+    
+    // Notify that typing started
+    callbackRef.current(true)
+    
+    const typeNextChar = () => {
+      if (indexRef.current < text.length) {
+        const char = text[indexRef.current]
+        setDisplayedText(text.slice(0, indexRef.current + 1))
+        
+        // Play sound for non-space characters
+        if (char !== " " && char !== "\n") {
+          playMimiSound()
+        }
+        
+        indexRef.current++
+        
+        // Vary timing slightly for more natural feel
+        const nextDelay = char === " " ? speed * 0.5 : 
+                         char === "." || char === "!" || char === "?" ? speed * 3 :
+                         char === "," || char === "~" ? speed * 2 :
+                         speed + (Math.random() * 10 - 5)
+        
+        timeoutRef.current = setTimeout(typeNextChar, nextDelay)
+      } else {
+        console.log("[Employment-chan] Typewriter complete")
+        setIsComplete(true)
+        callbackRef.current(false)
+      }
+    }
+    
+    // Start typing after a brief delay
+    timeoutRef.current = setTimeout(typeNextChar, 300)
+    
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [text, speed])
+  
+  return (
+    <span>
+      {displayedText}
+      {!isComplete && <span className="ec-cursor">|</span>}
+    </span>
+  )
+}
+
+// Talking waifu component with mouth animation
+const TalkingWaifu = ({ isTalking }: { isTalking: boolean }) => {
+  const [frameIndex, setFrameIndex] = useState(0)
+  
+  console.log("[Employment-chan] TalkingWaifu render - isTalking:", isTalking, "frameIndex:", frameIndex)
+  
+  useEffect(() => {
+    console.log("[Employment-chan] TalkingWaifu useEffect - isTalking:", isTalking)
+    
+    if (!isTalking) {
+      setFrameIndex(0) // Mouth closed when not talking
+      return
+    }
+    
+    console.log("[Employment-chan] Starting mouth animation loop")
+    
+    // Use setInterval for reliable timing
+    const intervalId = setInterval(() => {
+      setFrameIndex(prev => {
+        const next = prev === 0 ? 1 : 0
+        console.log("[Employment-chan] Frame:", next)
+        return next
+      })
+    }, 120)
+    
+    return () => {
+      console.log("[Employment-chan] Cleaning up mouth animation")
+      clearInterval(intervalId)
+    }
+  }, [isTalking])
+  
+  return (
+    <div className="ec-waifu-container">
+      {/* Render both images, toggle visibility */}
+      <img 
+        src={waifuMouthClosed}
+        alt="Employment-chan"
+        className="ec-waifu"
+        style={{ display: frameIndex === 0 ? 'block' : 'none' }}
+      />
+      <img 
+        src={waifuMouthOpen}
+        alt="Employment-chan"
+        className="ec-waifu"
+        style={{ display: frameIndex === 1 ? 'block' : 'none' }}
+      />
+    </div>
+  )
 }
 
 // Extract job info from LinkedIn page
@@ -239,23 +404,53 @@ const CelebrationOverlay = ({
   jobTitle?: string
   company?: string
 }) => {
+  const [isTypingComplete, setIsTypingComplete] = useState(false)
+  const autoCloseRef = useRef<NodeJS.Timeout | null>(null)
+  
+  const handleTypingStateChange = useCallback((typing: boolean) => {
+    console.log("[Employment-chan] Typing state changed:", typing)
+    // When typing stops, mark as complete
+    if (!typing) {
+      setIsTypingComplete(true)
+      // Auto-close 4 seconds after typing finishes
+      autoCloseRef.current = setTimeout(() => {
+        onClose()
+      }, 4000)
+    }
+  }, [onClose])
+  
   useEffect(() => {
     if (show) {
-      // Play sound
+      // Play initial celebration sound
       playCelebrationSound()
-      
-      // Auto-close after 8 seconds (longer to read AI message)
-      const timer = setTimeout(() => {
-        onClose()
-      }, 8000)
-      return () => clearTimeout(timer)
+      setIsTypingComplete(false)
     }
-  }, [show, onClose])
+    
+    return () => {
+      if (autoCloseRef.current) {
+        clearTimeout(autoCloseRef.current)
+      }
+    }
+  }, [show])
+  
+  // isTalking is true when overlay is shown and typing is not complete
+  const isTalking = show && !isTypingComplete
+  
+  console.log("[Employment-chan] CelebrationOverlay - show:", show, "isTypingComplete:", isTypingComplete, "isTalking:", isTalking)
 
   if (!show) return null
 
+  const handleClose = () => {
+    if (isTypingComplete) {
+      if (autoCloseRef.current) {
+        clearTimeout(autoCloseRef.current)
+      }
+      onClose()
+    }
+  }
+
   return (
-    <div className="ec-overlay" onClick={onClose}>
+    <div className="ec-overlay" onClick={handleClose}>
       <Confetti />
       <div className="ec-container" onClick={(e) => e.stopPropagation()}>
         <div className="ec-count-badge">
@@ -268,10 +463,22 @@ const CelebrationOverlay = ({
             {company && <span className="ec-job-company">{company}</span>}
           </div>
         )}
-        <img src={waifuImage} alt="Congratulations!" className="ec-waifu" />
-        <p className="ec-message">{message}</p>
-        <button className="ec-close-btn" onClick={onClose}>
-          Thanks, Employment-chan!
+        <TalkingWaifu isTalking={isTalking} />
+        <div className="ec-speech-bubble">
+          <p className="ec-message">
+            <TypewriterText 
+              text={message} 
+              onTypingStateChange={handleTypingStateChange}
+              speed={35}
+            />
+          </p>
+        </div>
+        <button 
+          className={`ec-close-btn ${!isTypingComplete ? 'ec-close-btn-disabled' : ''}`}
+          onClick={handleClose}
+          disabled={!isTypingComplete}
+        >
+          {isTypingComplete ? "Thanks, Employment-chan!" : "..."}
         </button>
       </div>
     </div>
