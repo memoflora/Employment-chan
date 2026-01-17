@@ -316,10 +316,20 @@ const getApplicationStats = async (): Promise<{ todayCount: number; totalCount: 
   })
 }
 
-// Track application count and get AI message
+// Dialogue context type
+interface DialogueContext {
+  jobTitle?: string
+  company?: string
+  todayCount: number
+  totalCount: number
+}
+
+// Track application count and get initial dialogue with choices
 const incrementApplicationCount = async (): Promise<{
   count: number
   message: string
+  choices: string[]
+  context: DialogueContext
   jobTitle?: string
   company?: string
 }> => {
@@ -331,7 +341,9 @@ const incrementApplicationCount = async (): Promise<{
     if (typeof chrome === "undefined" || !chrome.storage?.local) {
       resolve({ 
         count: 1, 
-        message: "You did it! One step closer to your dream job!",
+        message: "Yatta~! You did it! One step closer to your dream job, ne~ ♡",
+        choices: ["Thank you, Employment-chan!", "I'm so nervous...", "Let's keep going!"],
+        context: { jobTitle, company, todayCount: 1, totalCount: 1 },
         jobTitle,
         company
       })
@@ -361,13 +373,15 @@ const incrementApplicationCount = async (): Promise<{
           (app: { timestamp: number }) => app.timestamp > oneDayAgo
         ).length
         
-        // Request AI-generated message from background script
-        let message = "You did it! One step closer to your dream job!"
+        // Request AI-generated dialogue from background script
+        let message = "Yatta~! You did it! One step closer to your dream job, ne~ ♡"
+        let choices = ["Thank you, Employment-chan!", "I'm feeling nervous...", "On to the next one!"]
+        let context: DialogueContext = { jobTitle, company, todayCount, totalCount: newCount }
         
         try {
           if (chrome.runtime?.sendMessage) {
             const response = await chrome.runtime.sendMessage({
-              type: "GENERATE_CELEBRATION_MESSAGE",
+              type: "GENERATE_DIALOGUE",
               jobTitle,
               company,
               todayCount,
@@ -377,86 +391,160 @@ const incrementApplicationCount = async (): Promise<{
             if (response?.message) {
               message = response.message
             }
+            if (response?.choices?.length > 0) {
+              choices = response.choices
+            }
+            if (response?.context) {
+              context = response.context
+            }
           }
         } catch (error) {
-          console.error("[Employment-chan] Error getting AI message:", error)
+          console.error("[Employment-chan] Error getting dialogue:", error)
         }
         
-        resolve({ count: newCount, message, jobTitle, company })
+        resolve({ count: newCount, message, choices, context, jobTitle, company })
       })
     })
   })
 }
 
-// Celebration overlay component
+// Continue dialogue based on user's choice
+const continueDialogue = async (
+  userChoice: string,
+  conversationHistory: Array<{ role: string; content: string }>,
+  context: DialogueContext,
+  isFinal: boolean = false
+): Promise<{
+  message: string
+  choices: string[]
+  isFinal: boolean
+}> => {
+  try {
+    if (chrome.runtime?.sendMessage) {
+      const response = await chrome.runtime.sendMessage({
+        type: "CONTINUE_DIALOGUE",
+        userChoice,
+        conversationHistory,
+        context,
+        isFinal
+      })
+      
+      return {
+        message: response?.message || "Aww, that's sweet~ ♡",
+        choices: response?.choices || [],
+        isFinal: response?.isFinal || false
+      }
+    }
+  } catch (error) {
+    console.error("[Employment-chan] Error continuing dialogue:", error)
+  }
+  
+  return {
+    message: "Ganbare~! I believe in you! ♡",
+    choices: [],
+    isFinal: true
+  }
+}
+
+// Celebration overlay component with interactive dialogue
 const CelebrationOverlay = ({
   show,
   onClose,
   applicationCount,
-  message,
+  initialMessage,
+  initialChoices,
+  context,
   jobTitle,
   company
 }: {
   show: boolean
   onClose: () => void
   applicationCount: number
-  message: string
+  initialMessage: string
+  initialChoices: string[]
+  context: DialogueContext
   jobTitle?: string
   company?: string
 }) => {
+  const [currentMessage, setCurrentMessage] = useState(initialMessage)
+  const [currentChoices, setCurrentChoices] = useState<string[]>(initialChoices)
   const [isTypingComplete, setIsTypingComplete] = useState(false)
-  const autoCloseRef = useRef<NodeJS.Timeout | null>(null)
+  const [isLoadingResponse, setIsLoadingResponse] = useState(false)
+  const [conversationHistory, setConversationHistory] = useState<Array<{ role: string; content: string }>>([])
+  const [dialogueRound, setDialogueRound] = useState(0)
+  const [isFinalMessage, setIsFinalMessage] = useState(false)
   
-  const handleTypingStateChange = useCallback((typing: boolean) => {
-    console.log("[Employment-chan] Typing state changed:", typing)
-    // When typing stops, mark as complete
-    if (!typing) {
-      setIsTypingComplete(true)
-      // Auto-close 4 seconds after typing finishes
-      autoCloseRef.current = setTimeout(() => {
-        onClose()
-      }, 4000)
-    }
-  }, [onClose])
-  
+  // Reset state when overlay shows
   useEffect(() => {
     if (show) {
-      // Play initial celebration sound
       playCelebrationSound()
+      setCurrentMessage(initialMessage)
+      setCurrentChoices(initialChoices)
       setIsTypingComplete(false)
+      setIsLoadingResponse(false)
+      setConversationHistory([{ role: "assistant", content: initialMessage }])
+      setDialogueRound(0)
+      setIsFinalMessage(false)
     }
+  }, [show, initialMessage, initialChoices])
+  
+  const handleTypingStateChange = useCallback((typing: boolean) => {
+    if (!typing) {
+      setIsTypingComplete(true)
+    }
+  }, [])
+  
+  const handleChoiceSelect = async (choice: string) => {
+    if (isLoadingResponse || !isTypingComplete) return
     
-    return () => {
-      if (autoCloseRef.current) {
-        clearTimeout(autoCloseRef.current)
-      }
-    }
-  }, [show])
+    setIsLoadingResponse(true)
+    setIsTypingComplete(false)
+    
+    // Add user's choice to history
+    const newHistory = [
+      ...conversationHistory,
+      { role: "user", content: choice }
+    ]
+    setConversationHistory(newHistory)
+    
+    // Check if this should be the final round (after 2-3 exchanges)
+    const shouldBeFinal = dialogueRound >= 2
+    
+    // Get response from Employment-chan
+    const response = await continueDialogue(choice, newHistory, context, shouldBeFinal)
+    
+    // Update state with new message
+    setCurrentMessage(response.message)
+    setCurrentChoices(response.choices)
+    setIsFinalMessage(response.isFinal || response.choices.length === 0)
+    setDialogueRound(prev => prev + 1)
+    
+    // Add Employment-chan's response to history
+    setConversationHistory([
+      ...newHistory,
+      { role: "assistant", content: response.message }
+    ])
+    
+    setIsLoadingResponse(false)
+  }
   
-  // isTalking is true when overlay is shown and typing is not complete
-  const isTalking = show && !isTypingComplete
+  const handleClose = () => {
+    onClose()
+  }
   
-  console.log("[Employment-chan] CelebrationOverlay - show:", show, "isTypingComplete:", isTypingComplete, "isTalking:", isTalking)
+  // isTalking is true when typing is in progress
+  const isTalking = show && !isTypingComplete && !isLoadingResponse
 
   if (!show) return null
 
-  const handleClose = () => {
-    if (isTypingComplete) {
-      if (autoCloseRef.current) {
-        clearTimeout(autoCloseRef.current)
-      }
-      onClose()
-    }
-  }
-
   return (
-    <div className="ec-overlay" onClick={handleClose}>
+    <div className="ec-overlay">
       <Confetti />
       <div className="ec-container" onClick={(e) => e.stopPropagation()}>
         <div className="ec-count-badge">
           Application #{applicationCount}
         </div>
-        {(jobTitle || company) && (
+        {(jobTitle || company) && dialogueRound === 0 && (
           <div className="ec-job-info">
             {jobTitle && <span className="ec-job-title">{jobTitle}</span>}
             {jobTitle && company && <span className="ec-job-separator">at</span>}
@@ -466,20 +554,50 @@ const CelebrationOverlay = ({
         <TalkingWaifu isTalking={isTalking} />
         <div className="ec-speech-bubble">
           <p className="ec-message">
-            <TypewriterText 
-              text={message} 
-              onTypingStateChange={handleTypingStateChange}
-              speed={35}
-            />
+            {isLoadingResponse ? (
+              <span className="ec-loading">...</span>
+            ) : (
+              <TypewriterText 
+                text={currentMessage} 
+                onTypingStateChange={handleTypingStateChange}
+                speed={30}
+              />
+            )}
           </p>
         </div>
-        <button 
-          className={`ec-close-btn ${!isTypingComplete ? 'ec-close-btn-disabled' : ''}`}
-          onClick={handleClose}
-          disabled={!isTypingComplete}
-        >
-          {isTypingComplete ? "Thanks, Employment-chan!" : "..."}
-        </button>
+        
+        {/* Dialogue Choices */}
+        {isTypingComplete && !isLoadingResponse && currentChoices.length > 0 && !isFinalMessage && (
+          <div className="ec-choices">
+            {currentChoices.map((choice, index) => (
+              <button
+                key={index}
+                className="ec-choice-btn"
+                onClick={() => handleChoiceSelect(choice)}
+              >
+                {choice}
+              </button>
+            ))}
+            {/* Always show exit option */}
+            <button
+              className="ec-choice-btn ec-choice-exit"
+              onClick={handleClose}
+            >
+              Time to apply to more jobs! 💼
+            </button>
+          </div>
+        )}
+        
+        {/* Close button - only show when conversation is done */}
+        {isTypingComplete && !isLoadingResponse && (isFinalMessage || currentChoices.length === 0) && (
+          <button 
+            className="ec-choice-btn ec-choice-exit"
+            onClick={handleClose}
+          >
+            Thanks, Employment-chan! ♡
+          </button>
+        )}
+        
       </div>
     </div>
   )
@@ -490,6 +608,8 @@ const LinkedInWatcher = () => {
   const [showCelebration, setShowCelebration] = useState(false)
   const [applicationCount, setApplicationCount] = useState(0)
   const [celebrationMessage, setCelebrationMessage] = useState("")
+  const [celebrationChoices, setCelebrationChoices] = useState<string[]>([])
+  const [dialogueContext, setDialogueContext] = useState<DialogueContext>({ todayCount: 0, totalCount: 0 })
   const [jobTitle, setJobTitle] = useState<string | undefined>()
   const [company, setCompany] = useState<string | undefined>()
   const [triggeredUrls, setTriggeredUrls] = useState<Set<string>>(new Set())
@@ -518,12 +638,15 @@ const LinkedInWatcher = () => {
       const result = await incrementApplicationCount()
       setApplicationCount(result.count)
       setCelebrationMessage(result.message)
+      setCelebrationChoices(result.choices)
+      setDialogueContext(result.context)
       setJobTitle(result.jobTitle)
       setCompany(result.company)
       setShowCelebration(true)
     } catch (error) {
       console.error("[Employment-chan] Error:", error)
-      setCelebrationMessage("You did it! One step closer to your dream job!")
+      setCelebrationMessage("Yatta~! You did it! One step closer to your dream job! ♡")
+      setCelebrationChoices(["Thank you!", "I'm nervous...", "Let's keep going!"])
       setShowCelebration(true)
     } finally {
       setIsLoading(false)
@@ -606,7 +729,9 @@ const LinkedInWatcher = () => {
       show={showCelebration}
       onClose={() => setShowCelebration(false)}
       applicationCount={applicationCount}
-      message={celebrationMessage}
+      initialMessage={celebrationMessage}
+      initialChoices={celebrationChoices}
+      context={dialogueContext}
       jobTitle={jobTitle}
       company={company}
     />

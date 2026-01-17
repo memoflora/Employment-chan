@@ -1,19 +1,39 @@
 export {}
 
 // Types for messages
-interface GenerateMessageRequest {
-  type: "GENERATE_CELEBRATION_MESSAGE"
+interface DialogueContext {
   jobTitle?: string
   company?: string
   todayCount: number
   totalCount: number
 }
 
-interface GenerateMessageResponse {
+interface GenerateDialogueRequest {
+  type: "GENERATE_DIALOGUE"
+  jobTitle?: string
+  company?: string
+  todayCount: number
+  totalCount: number
+}
+
+interface ContinueDialogueRequest {
+  type: "CONTINUE_DIALOGUE"
+  userChoice: string
+  conversationHistory: Array<{ role: string; content: string }>
+  context: DialogueContext
+  isFinal?: boolean
+}
+
+interface DialogueResponse {
   success: boolean
   message: string
+  choices: string[]
+  context?: DialogueContext
+  isFinal?: boolean
   error?: string
 }
+
+type MessageRequest = GenerateDialogueRequest | ContinueDialogueRequest
 
 // Flask backend URL
 const BACKEND_URL = process.env.PLASMO_PUBLIC_BACKEND_URL || "http://localhost:5000"
@@ -21,38 +41,52 @@ const BACKEND_URL = process.env.PLASMO_PUBLIC_BACKEND_URL || "http://localhost:5
 // Listen for messages from content scripts
 chrome.runtime.onMessage.addListener(
   (
-    request: GenerateMessageRequest,
+    request: MessageRequest,
     _sender,
-    sendResponse: (response: GenerateMessageResponse) => void
+    sendResponse: (response: DialogueResponse) => void
   ) => {
-    if (request.type === "GENERATE_CELEBRATION_MESSAGE") {
-      generateCelebrationMessage(request)
-        .then((message) => {
-          sendResponse({ success: true, message })
-        })
+    if (request.type === "GENERATE_DIALOGUE") {
+      generateDialogue(request)
+        .then((response) => sendResponse(response))
         .catch((error) => {
-          console.error("[Employment-chan] Error generating message:", error)
+          console.error("[Employment-chan] Error generating dialogue:", error)
           sendResponse({
             success: false,
             message: getFallbackMessage(request.totalCount),
+            choices: getFallbackChoices(),
             error: error.message
           })
         })
-      // Return true to indicate we'll respond asynchronously
+      return true
+    }
+    
+    if (request.type === "CONTINUE_DIALOGUE") {
+      continueDialogue(request)
+        .then((response) => sendResponse(response))
+        .catch((error) => {
+          console.error("[Employment-chan] Error continuing dialogue:", error)
+          sendResponse({
+            success: false,
+            message: "Gomen ne~! Something went wrong, but I still believe in you! ♡",
+            choices: [],
+            isFinal: true,
+            error: error.message
+          })
+        })
       return true
     }
   }
 )
 
-// Generate celebration message via Flask backend
-async function generateCelebrationMessage(
-  request: GenerateMessageRequest
-): Promise<string> {
+// Generate initial dialogue with choices
+async function generateDialogue(
+  request: GenerateDialogueRequest
+): Promise<DialogueResponse> {
   const { jobTitle, company, todayCount, totalCount } = request
 
   try {
-    console.log("[Employment-chan] Calling Flask backend at:", BACKEND_URL)
-    const response = await fetch(`${BACKEND_URL}/api/generate-message`, {
+    console.log("[Employment-chan] Calling Flask backend for dialogue")
+    const response = await fetch(`${BACKEND_URL}/api/generate-dialogue`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ jobTitle, company, todayCount, totalCount })
@@ -60,16 +94,62 @@ async function generateCelebrationMessage(
 
     if (response.ok) {
       const data = await response.json()
-      if (data.success && data.message) {
-        console.log("[Employment-chan] Got AI message from Flask backend")
-        return data.message
+      if (data.success) {
+        console.log("[Employment-chan] Got dialogue from Flask backend")
+        return {
+          success: true,
+          message: data.message,
+          choices: data.choices || [],
+          context: data.context
+        }
       }
     }
     
     throw new Error(`Backend error: ${response.status}`)
   } catch (error) {
     console.log("[Employment-chan] Flask backend error:", error)
-    return getFallbackMessage(totalCount)
+    return {
+      success: false,
+      message: getFallbackMessage(totalCount),
+      choices: getFallbackChoices(),
+      context: { jobTitle, company, todayCount, totalCount }
+    }
+  }
+}
+
+// Continue dialogue based on user's choice
+async function continueDialogue(
+  request: ContinueDialogueRequest
+): Promise<DialogueResponse> {
+  const { userChoice, conversationHistory, context, isFinal } = request
+
+  try {
+    console.log("[Employment-chan] Continuing dialogue with choice:", userChoice)
+    const response = await fetch(`${BACKEND_URL}/api/continue-dialogue`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userChoice, conversationHistory, context, isFinal })
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        success: true,
+        message: data.message,
+        choices: data.choices || [],
+        isFinal: data.isFinal || false
+      }
+    }
+    
+    throw new Error(`Backend error: ${response.status}`)
+  } catch (error) {
+    console.log("[Employment-chan] Flask backend error:", error)
+    return {
+      success: false,
+      message: "Aww, something went wrong~ But don't worry, I'm still cheering for you! ♡",
+      choices: [],
+      isFinal: true
+    }
   }
 }
 
@@ -98,4 +178,13 @@ function getFallbackMessage(totalCount: number): string {
   }
 
   return messages[Math.floor(Math.random() * messages.length)]
+}
+
+// Fallback choices
+function getFallbackChoices(): string[] {
+  return [
+    "Thank you, Employment-chan! ♡",
+    "I'm feeling a bit nervous about this one...",
+    "Let's keep the momentum going!"
+  ]
 }
